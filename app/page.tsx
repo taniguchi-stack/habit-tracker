@@ -22,6 +22,9 @@ export default function Home() {
   const [groupMode, setGroupMode] = useState<"date" | "habit">("date");
   const [filterCategory, setFilterCategory] = useState("すべて");
   const [showAddForm, setShowAddForm] = useState(false);
+  const [advice, setAdvice] = useState("");
+  const [loadingAdvice, setLoadingAdvice] = useState(false);
+  const [showAdvice, setShowAdvice] = useState(false);
 
   const today = new Date().toISOString().split("T")[0];
   const todayJP = new Date().toLocaleDateString("ja-JP", { year: "numeric", month: "long", day: "numeric", weekday: "long" });
@@ -87,7 +90,23 @@ export default function Home() {
 
   const logout = async () => { await supabase.auth.signOut(); router.push("/login"); };
 
-  // ストリーク計算
+  const getGeminiAdvice = async () => {
+    setLoadingAdvice(true);
+    setShowAdvice(true);
+    try {
+      const res = await fetch("/api/gemini", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ habits }),
+      });
+      const data = await res.json();
+      setAdvice(data.advice);
+    } catch {
+      setAdvice("アドバイスの取得に失敗しました。");
+    }
+    setLoadingAdvice(false);
+  };
+
   const calcStreak = (habitName: string) => {
     let streak = 0;
     const d = new Date();
@@ -164,7 +183,6 @@ export default function Home() {
         {/* 今日ビュー */}
         {view === "today" && (
           <>
-            {/* 達成率カード */}
             <div className="w-full max-w-md bg-white rounded-2xl p-4 shadow-sm mb-4">
               <div className="flex justify-between items-center mb-2">
                 <span className="text-gray-500 text-sm">今日の進捗</span>
@@ -175,6 +193,28 @@ export default function Home() {
               </div>
               <p className="text-right text-xs text-gray-400">{doneCount} / {todayHabits.length} 完了</p>
             </div>
+
+            {/* Geminiアドバイスボタン */}
+            <button onClick={getGeminiAdvice}
+              className="w-full max-w-md bg-gradient-to-r from-blue-500 to-purple-500 text-white rounded-2xl py-3 mb-4 font-medium flex items-center justify-center gap-2">
+              <span>✨</span>
+              {loadingAdvice ? "AIが分析中..." : "AIにアドバイスをもらう"}
+            </button>
+
+            {/* Geminiアドバイス表示 */}
+            {showAdvice && (
+              <div className="w-full max-w-md bg-gradient-to-br from-blue-50 to-purple-50 rounded-2xl p-4 mb-4 border border-blue-100">
+                <div className="flex justify-between items-center mb-2">
+                  <span className="font-bold text-blue-700">✨ AIアドバイス</span>
+                  <button onClick={() => setShowAdvice(false)} className="text-gray-400 text-sm">✕</button>
+                </div>
+                {loadingAdvice ? (
+                  <p className="text-gray-500 text-sm">分析中...少々お待ちください</p>
+                ) : (
+                  <p className="text-gray-700 text-sm whitespace-pre-wrap">{advice}</p>
+                )}
+              </div>
+            )}
 
             {/* カテゴリフィルター */}
             <div className="flex gap-2 mb-4 w-full max-w-md overflow-x-auto pb-1">
